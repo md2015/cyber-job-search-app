@@ -27,7 +27,8 @@ def search_jobs_for_company(company, job_title="cybersecurity", location="USA", 
         "x-rapidapi-host": JSEARCH_HOST,
     }
 
-    query = f"{job_title} {company}"
+    # Search broadly - just job title, no company name in query
+    query = f"{job_title} jobs in USA"
     params = {
         "query": query,
         "page": "1",
@@ -57,9 +58,15 @@ def search_jobs_for_company(company, job_title="cybersecurity", location="USA", 
         if not raw_jobs:
             return _demo_jobs(company, job_title)
 
-        return [_normalize_job(job, company) for job in raw_jobs]
+        # Filter jobs that mention this company OR just return all
+        company_jobs = [j for j in raw_jobs if company.lower() in
+                       (j.get("employer_name","") + j.get("job_description","")).lower()]
 
-    except Exception:
+        # If no company match found, return all results
+        result = company_jobs if company_jobs else raw_jobs[:2]
+        return [_normalize_job(job, company) for job in result]
+
+    except Exception as e:
         return _demo_jobs(company, job_title)
 
 def _normalize_job(raw, company):
@@ -122,24 +129,10 @@ def _demo_jobs(company, job_title):
             "education_required": "Bachelor's Degree",
             "certifications_required": "Security+, CompTIA A+",
             "skills_required": "Python, Networking, Wireshark, SIEM",
-            "link": "https://example.com/job/1",
+            "link": "",
             "date_posted": "2026-06-15",
             "description": "Monitor security alerts and investigate incidents.",
             "employment_type": "FULLTIME",
             "is_remote": False,
-        },
-        {
-            "company": company,
-            "title": "SOC Analyst",
-            "location": "Remote",
-            "salary": "$70,000 - $90,000 / year",
-            "education_required": "Associate Degree",
-            "certifications_required": "CompTIA A+, Network+",
-            "skills_required": "Linux, Nmap, Security Fundamentals",
-            "link": "https://example.com/job/2",
-            "date_posted": "2026-06-18",
-            "description": "24/7 monitoring of security events.",
-            "employment_type": "FULLTIME",
-            "is_remote": True,
         },
     ]
