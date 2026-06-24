@@ -17,7 +17,7 @@ def render():
     st.title("🔍 Cybersecurity Job Search")
     with st.sidebar:
         st.header("Search Settings")
-        selected_companies = st.multiselect("Select Companies", options=COMPANIES, default=COMPANIES[:5])
+        selected_companies = st.multiselect("Select Companies", options=COMPANIES, default=COMPANIES[:20])
         job_keyword = st.selectbox("Job Category", options=CYBER_JOB_TITLES, index=0)
         location_filter = st.text_input("Location Filter", value="USA")
 

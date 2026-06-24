@@ -46,7 +46,6 @@ def search_jobs_for_company(company, job_title="cybersecurity", location="USA", 
         response.raise_for_status()
         data = response.json()
 
-        # v5 API returns data.jobs OR data as a list
         raw = data.get("data", {})
         if isinstance(raw, dict):
             raw_jobs = raw.get("jobs", [])
@@ -60,11 +59,7 @@ def search_jobs_for_company(company, job_title="cybersecurity", location="USA", 
 
         return [_normalize_job(job, company) for job in raw_jobs]
 
-    except requests.exceptions.HTTPError as e:
-        st.warning(f"API error for {company}: {e}")
-        return _demo_jobs(company, job_title)
-    except Exception as e:
-        st.warning(f"Error for {company}: {e}")
+    except Exception:
         return _demo_jobs(company, job_title)
 
 def _normalize_job(raw, company):
