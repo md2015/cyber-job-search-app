@@ -1,0 +1,8 @@
+streamlit
+pandas
+plotly
+requests
+openpyxl
+python-dotenv
+fuzzywuzzy
+python-Levenshtein
