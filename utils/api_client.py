@@ -27,11 +27,9 @@ def search_jobs_for_company(company, job_title="cybersecurity", location="USA", 
         "x-rapidapi-host": JSEARCH_HOST,
     }
 
-    # Search broadly - just job title, no company name in query
     query = f"{job_title} jobs in USA"
     params = {
         "query": query,
-        "page": "1",
         "num_pages": "1",
         "country": "us",
         "date_posted": "month",
@@ -39,7 +37,7 @@ def search_jobs_for_company(company, job_title="cybersecurity", location="USA", 
 
     try:
         response = requests.get(
-            f"{JSEARCH_BASE}/search",
+            f"{JSEARCH_BASE}/search-v2",
             headers=headers,
             params=params,
             timeout=15,
@@ -58,15 +56,9 @@ def search_jobs_for_company(company, job_title="cybersecurity", location="USA", 
         if not raw_jobs:
             return _demo_jobs(company, job_title)
 
-        # Filter jobs that mention this company OR just return all
-        company_jobs = [j for j in raw_jobs if company.lower() in
-                       (j.get("employer_name","") + j.get("job_description","")).lower()]
+        return [_normalize_job(job, company) for job in raw_jobs[:3]]
 
-        # If no company match found, return all results
-        result = company_jobs if company_jobs else raw_jobs[:2]
-        return [_normalize_job(job, company) for job in result]
-
-    except Exception as e:
+    except Exception:
         return _demo_jobs(company, job_title)
 
 def _normalize_job(raw, company):
@@ -123,15 +115,15 @@ def _demo_jobs(company, job_title):
     return [
         {
             "company": company,
-            "title": "Cybersecurity Analyst I",
+            "title": "Cybersecurity Analyst",
             "location": "New York, NY",
             "salary": "$65,000 - $85,000 / year",
             "education_required": "Bachelor's Degree",
             "certifications_required": "Security+, CompTIA A+",
             "skills_required": "Python, Networking, Wireshark, SIEM",
             "link": "",
-            "date_posted": "2026-06-15",
-            "description": "Monitor security alerts and investigate incidents.",
+            "date_posted": "2026-06-24",
+            "description": "Demo job - API key not loaded.",
             "employment_type": "FULLTIME",
             "is_remote": False,
         },
