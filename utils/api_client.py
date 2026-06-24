@@ -128,3 +128,39 @@ def _demo_jobs(company, job_title):
             "is_remote": False,
         },
     ]
+
+def search_jobs_bulk(job_title="cybersecurity analyst"):
+    """Single API call that returns up to 10 real jobs instantly."""
+    api_key = get_api_key()
+    if not api_key or api_key == "your_jsearch_api_key_here":
+        return []
+
+    headers = {
+        "x-rapidapi-key": api_key,
+        "x-rapidapi-host": JSEARCH_HOST,
+    }
+    params = {
+        "query": f"{job_title} jobs in USA",
+        "num_pages": "1",
+        "country": "us",
+        "date_posted": "month",
+    }
+    try:
+        response = requests.get(
+            f"{JSEARCH_BASE}/search-v2",
+            headers=headers,
+            params=params,
+            timeout=15,
+        )
+        response.raise_for_status()
+        data = response.json()
+        raw = data.get("data", {})
+        if isinstance(raw, dict):
+            raw_jobs = raw.get("jobs", [])
+        elif isinstance(raw, list):
+            raw_jobs = raw
+        else:
+            raw_jobs = []
+        return [_normalize_job(job, job.get("employer_name","Unknown")) for job in raw_jobs]
+    except Exception:
+        return []

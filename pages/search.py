@@ -3,7 +3,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data.companies import COMPANIES, CYBER_JOB_TITLES
-from utils.api_client import search_jobs_for_company
+from utils.api_client import search_jobs_bulk
 from utils.matcher import batch_match
 
 DEFAULT_PROFILE = {
@@ -17,36 +17,32 @@ def render():
     st.title("🔍 Cybersecurity Job Search")
     with st.sidebar:
         st.header("Search Settings")
-        selected_companies = st.multiselect("Select Companies", options=COMPANIES, default=COMPANIES[:20])
+        selected_companies = st.multiselect("Filter by Company", options=COMPANIES, default=COMPANIES[:25])
         job_keyword = st.selectbox("Job Category", options=CYBER_JOB_TITLES, index=0)
-        location_filter = st.text_input("Location Filter", value="USA")
+        st.markdown("---")
+        st.caption("One API call returns up to 10 real jobs instantly.")
 
     profile = st.session_state.get("user_profile", DEFAULT_PROFILE)
 
-    if not selected_companies:
-        st.info("Select at least one company in the sidebar.")
-        return
-
-    if st.button(f"🚀 Search {len(selected_companies)} Companies", type="primary"):
-        all_jobs = []
-        progress = st.progress(0, text="Starting...")
-        for i, company in enumerate(selected_companies):
-            progress.progress((i+1)/len(selected_companies), text=f"Searching {company}...")
-            jobs = search_jobs_for_company(company=company, job_title=job_keyword, location=location_filter)
-            all_jobs.extend(jobs)
-        progress.empty()
-        if all_jobs:
-            st.session_state["search_results"] = batch_match(all_jobs, profile)
-            st.success(f"Found {len(all_jobs)} jobs.")
+    if st.button(f"🚀 Search Jobs Now", type="primary"):
+        with st.spinner("Searching for real cybersecurity jobs..."):
+            jobs = search_jobs_bulk(job_keyword)
+        if jobs:
+            st.session_state["search_results"] = batch_match(jobs, profile)
+            st.session_state["selected_companies"] = selected_companies
+            st.success(f"Found {len(jobs)} real jobs.")
         else:
             st.warning("No results found.")
 
     results = st.session_state.get("search_results", [])
+    selected = st.session_state.get("selected_companies", selected_companies)
+
     if not results:
-        st.info("Run a search to see results.")
+        st.info("Click Search Jobs Now to see results.")
         return
 
     st.markdown("### Results")
+    shown = 0
     for job in results:
         score = job.get("match_score", 0)
         status = job.get("match_status", "")
@@ -62,3 +58,6 @@ def render():
             st.write(f"**Skills:** {job.get('skills_required','See description')}")
             if job.get("link"):
                 st.markdown(f"[🔗 Apply Now]({job['link']})")
+            else:
+                st.caption("No apply link available for this job.")
+        shown += 1
