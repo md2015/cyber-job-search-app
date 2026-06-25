@@ -5,34 +5,59 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data.companies import COMPANIES, CYBER_JOB_TITLES
 from utils.api_client import search_jobs_bulk
 
+US_STATES = [
+    "USA (All States)",
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California",
+    "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
+    "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa",
+    "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland",
+    "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri",
+    "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
+    "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+    "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
+    "South Dakota", "Tennessee", "Texas", "Utah", "Vermont",
+    "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming",
+    "Washington DC", "Remote"
+]
+
 def render():
     st.title("🔍 Cybersecurity Job Search")
-    st.markdown("Find real cybersecurity job openings in the USA.")
+    st.markdown("Find real cybersecurity job openings across the USA.")
 
     with st.sidebar:
         st.header("Search Settings")
         job_keyword = st.selectbox("Job Category", options=CYBER_JOB_TITLES, index=0)
-        location = st.text_input("Location", value="USA")
+        state = st.selectbox("State / Location", options=US_STATES, index=0)
         st.markdown("---")
         st.caption("Each search returns up to 10 real live jobs.")
 
+    # Build location string
+    if state == "USA (All States)":
+        location = "USA"
+    elif state == "Remote":
+        location = "Remote USA"
+    else:
+        location = state
+
     if st.button("🚀 Search Jobs Now", type="primary"):
-        with st.spinner(f"Searching for {job_keyword} jobs..."):
+        with st.spinner(f"Searching for {job_keyword} jobs in {location}..."):
             jobs = search_jobs_bulk(job_keyword, location)
         if jobs:
             st.session_state["search_results"] = jobs
-            st.success(f"Found {len(jobs)} real jobs for **{job_keyword}**.")
+            st.session_state["search_label"] = f"{job_keyword} — {location}"
+            st.success(f"Found {len(jobs)} real jobs for **{job_keyword}** in **{location}**.")
         else:
-            st.warning("No results found. Try a different category.")
+            st.warning("No results found. Try a different state or category.")
 
     results = st.session_state.get("search_results", [])
+    label = st.session_state.get("search_label", "")
 
     if not results:
-        st.info("Select a job category and click Search.")
+        st.info("Select a job category and state, then click Search.")
         return
 
     st.markdown("---")
-    st.markdown(f"### Results")
+    st.markdown(f"### Results — {label}")
 
     for job in results:
         with st.container():
