@@ -17,24 +17,21 @@ def get_api_key():
             pass
     return key
 
-def search_jobs_for_company(company, job_title="cybersecurity", location="USA", num_pages=1):
+def search_jobs_bulk(job_title="cybersecurity analyst", location="USA"):
     api_key = get_api_key()
     if not api_key or api_key == "your_jsearch_api_key_here":
-        return _demo_jobs(company, job_title)
+        return []
 
     headers = {
         "x-rapidapi-key": api_key,
         "x-rapidapi-host": JSEARCH_HOST,
     }
-
-    query = f"{job_title} jobs in USA"
     params = {
-        "query": query,
+        "query": f"{job_title} jobs in {location}",
         "num_pages": "1",
         "country": "us",
         "date_posted": "month",
     }
-
     try:
         response = requests.get(
             f"{JSEARCH_BASE}/search-v2",
@@ -44,7 +41,6 @@ def search_jobs_for_company(company, job_title="cybersecurity", location="USA", 
         )
         response.raise_for_status()
         data = response.json()
-
         raw = data.get("data", {})
         if isinstance(raw, dict):
             raw_jobs = raw.get("jobs", [])
@@ -52,18 +48,16 @@ def search_jobs_for_company(company, job_title="cybersecurity", location="USA", 
             raw_jobs = raw
         else:
             raw_jobs = []
-
-        if not raw_jobs:
-            return _demo_jobs(company, job_title)
-
-        return [_normalize_job(job, company) for job in raw_jobs[:3]]
-
+        return [_normalize_job(job) for job in raw_jobs]
     except Exception:
-        return _demo_jobs(company, job_title)
+        return []
 
-def _normalize_job(raw, company):
+def search_jobs_for_company(company, job_title="cybersecurity", location="USA", num_pages=1):
+    return search_jobs_bulk(job_title, location)
+
+def _normalize_job(raw):
     return {
-        "company": raw.get("employer_name", company),
+        "company": raw.get("employer_name", ""),
         "title": raw.get("job_title", ""),
         "location": _format_location(raw),
         "salary": _format_salary(raw),
@@ -72,7 +66,7 @@ def _normalize_job(raw, company):
         "skills_required": _extract_skills(raw),
         "link": raw.get("job_apply_link", ""),
         "date_posted": str(raw.get("job_posted_at_datetime_utc", ""))[:10],
-        "description": raw.get("job_description", "")[:1000],
+        "description": raw.get("job_description", "")[:500],
         "employment_type": raw.get("job_employment_type", ""),
         "is_remote": raw.get("job_is_remote", False),
     }
@@ -110,93 +104,3 @@ def _extract_skills(raw):
               "Firewall","Cloud","AWS","Azure","Docker","Bash","PowerShell","SQL"]
     found = [s for s in common if s.lower() in desc]
     return ", ".join(found[:10]) if found else "See description"
-
-def _demo_jobs(company, job_title):
-    return [
-        {
-            "company": company,
-            "title": "Cybersecurity Analyst",
-            "location": "New York, NY",
-            "salary": "$65,000 - $85,000 / year",
-            "education_required": "Bachelor's Degree",
-            "certifications_required": "Security+, CompTIA A+",
-            "skills_required": "Python, Networking, Wireshark, SIEM",
-            "link": "",
-            "date_posted": "2026-06-24",
-            "description": "Demo job - API key not loaded.",
-            "employment_type": "FULLTIME",
-            "is_remote": False,
-        },
-    ]
-
-def search_jobs_bulk(job_title="cybersecurity analyst"):
-    """Single API call that returns up to 10 real jobs instantly."""
-    api_key = get_api_key()
-    if not api_key or api_key == "your_jsearch_api_key_here":
-        return []
-
-    headers = {
-        "x-rapidapi-key": api_key,
-        "x-rapidapi-host": JSEARCH_HOST,
-    }
-    params = {
-        "query": f"{job_title} jobs in USA",
-        "num_pages": "1",
-        "country": "us",
-        "date_posted": "month",
-    }
-    try:
-        response = requests.get(
-            f"{JSEARCH_BASE}/search-v2",
-            headers=headers,
-            params=params,
-            timeout=15,
-        )
-        response.raise_for_status()
-        data = response.json()
-        raw = data.get("data", {})
-        if isinstance(raw, dict):
-            raw_jobs = raw.get("jobs", [])
-        elif isinstance(raw, list):
-            raw_jobs = raw
-        else:
-            raw_jobs = []
-        return [_normalize_job(job, job.get("employer_name","Unknown")) for job in raw_jobs]
-    except Exception:
-        return []
-
-def search_jobs_bulk(job_title="cybersecurity analyst"):
-    """Single API call that returns up to 10 real jobs instantly."""
-    api_key = get_api_key()
-    if not api_key or api_key == "your_jsearch_api_key_here":
-        return []
-
-    headers = {
-        "x-rapidapi-key": api_key,
-        "x-rapidapi-host": JSEARCH_HOST,
-    }
-    params = {
-        "query": f"{job_title} jobs in USA",
-        "num_pages": "1",
-        "country": "us",
-        "date_posted": "month",
-    }
-    try:
-        response = requests.get(
-            f"{JSEARCH_BASE}/search-v2",
-            headers=headers,
-            params=params,
-            timeout=15,
-        )
-        response.raise_for_status()
-        data = response.json()
-        raw = data.get("data", {})
-        if isinstance(raw, dict):
-            raw_jobs = raw.get("jobs", [])
-        elif isinstance(raw, list):
-            raw_jobs = raw
-        else:
-            raw_jobs = []
-        return [_normalize_job(job, job.get("employer_name","Unknown")) for job in raw_jobs]
-    except Exception:
-        return []
