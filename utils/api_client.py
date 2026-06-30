@@ -1,106 +1,83 @@
+"""
+JSearch API client (RapidAPI) — used to fetch real, live job postings.
+Free tier: 200 requests/month. Monitor usage at rapidapi.com dashboard.
+"""
+
 import os
 import requests
 import streamlit as st
-from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    JSEARCH_API_KEY = st.secrets["JSEARCH_API_KEY"]
+except Exception:
+    from dotenv import load_dotenv
+    load_dotenv()
+    JSEARCH_API_KEY = os.getenv("JSEARCH_API_KEY")
 
 JSEARCH_HOST = "jsearch.p.rapidapi.com"
-JSEARCH_BASE = "https://jsearch.p.rapidapi.com"
+JSEARCH_URL = f"https://{JSEARCH_HOST}/search-v2"
 
-def get_api_key():
-    key = os.getenv("JSEARCH_API_KEY", "")
-    if not key:
-        try:
-            key = st.secrets["JSEARCH_API_KEY"]
-        except Exception:
-            pass
-    return key
 
-def search_jobs_bulk(job_title="cybersecurity analyst", location="USA"):
-    api_key = get_api_key()
-    if not api_key or api_key == "your_jsearch_api_key_here":
+def search_jobs_bulk(query: str, location: str = "United States", remote: bool = False, num_pages: int = 4, country_code: str = "us"):
+    """
+    Search live job postings via the JSearch API (search-v2 endpoint).
+
+    Args:
+        query: search term — job title, major, or department
+        location: state/region/city name, or "United States" for nationwide search
+        remote: if True, biases the search toward remote-friendly listings
+        num_pages: number of result pages to fetch from JSearch
+        country_code: two-letter country code (e.g. "us", "ca", "gb", "in")
+
+    Returns:
+        A list of job dicts.
+    """
+
+    if not JSEARCH_API_KEY:
+        st.error("JSearch API key not found. Please check your Streamlit Secrets or .env file.")
         return []
 
     headers = {
-        "x-rapidapi-key": api_key,
+        "x-rapidapi-key": JSEARCH_API_KEY,
         "x-rapidapi-host": JSEARCH_HOST,
     }
+
+    full_query = f"{query} in {location}" if location else query
+
     params = {
-        "query": f"{job_title} jobs in {location}",
-        "num_pages": "1",
-        "country": "us",
-        "date_posted": "month",
+        "query": full_query,
+        "page": "1",
+        "num_pages": str(num_pages),
+        "country": country_code,
+        "date_posted": "all",
     }
+
+    if remote:
+        params["remote_jobs_only"] = "true"
+
     try:
-        response = requests.get(
-            f"{JSEARCH_BASE}/search-v2",
-            headers=headers,
-            params=params,
-            timeout=15,
-        )
+        response = requests.get(JSEARCH_URL, headers=headers, params=params, timeout=60)
         response.raise_for_status()
         data = response.json()
-        raw = data.get("data", {})
-        if isinstance(raw, dict):
-            raw_jobs = raw.get("jobs", [])
-        elif isinstance(raw, list):
-            raw_jobs = raw
+
+        data_section = data.get("data", {})
+
+        if isinstance(data_section, list):
+            jobs = data_section
+        elif isinstance(data_section, dict):
+            jobs = data_section.get("jobs", [])
         else:
-            raw_jobs = []
-        return [_normalize_job(job) for job in raw_jobs]
-    except Exception:
+            jobs = []
+
+        if jobs and not isinstance(jobs[0], dict):
+            st.warning("Unexpected API response format (entries are not job objects).")
+            return []
+
+        return jobs
+
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching jobs from JSearch API: {e}")
         return []
-
-def search_jobs_for_company(company, job_title="cybersecurity", location="USA", num_pages=1):
-    return search_jobs_bulk(job_title, location)
-
-def _normalize_job(raw):
-    return {
-        "company": raw.get("employer_name", ""),
-        "title": raw.get("job_title", ""),
-        "location": _format_location(raw),
-        "salary": _format_salary(raw),
-        "education_required": raw.get("job_required_education", {}).get("required_credential", "Not specified") if isinstance(raw.get("job_required_education"), dict) else "Not specified",
-        "certifications_required": _extract_certs(raw),
-        "skills_required": _extract_skills(raw),
-        "link": raw.get("job_apply_link", ""),
-        "date_posted": str(raw.get("job_posted_at_datetime_utc", ""))[:10],
-        "description": raw.get("job_description", "")[:500],
-        "employment_type": raw.get("job_employment_type", ""),
-        "is_remote": raw.get("job_is_remote", False),
-    }
-
-def _format_location(raw):
-    if raw.get("job_is_remote"):
-        return "Remote"
-    parts = [p for p in [raw.get("job_city",""), raw.get("job_state",""), raw.get("job_country","")] if p]
-    return ", ".join(parts) if parts else "Not specified"
-
-def _format_salary(raw):
-    min_s = raw.get("job_min_salary")
-    max_s = raw.get("job_max_salary")
-    salary_str = raw.get("job_salary_string", "")
-    period = raw.get("job_salary_period", "YEAR")
-    if min_s and max_s:
-        return f"${int(min_s):,} - ${int(max_s):,} / {period.lower()}"
-    elif salary_str:
-        return salary_str
-    return "Not listed"
-
-def _extract_certs(raw):
-    desc = raw.get("job_description", "").lower()
-    cert_keywords = ["Security+","CISSP","CEH","CISM","CISA","CCNA","Network+",
-                     "AWS Certified","CompTIA","Linux+","CySA+","OSCP","GIAC"]
-    found = [c for c in cert_keywords if c.lower() in desc]
-    return ", ".join(found) if found else "None specified"
-
-def _extract_skills(raw):
-    skills_list = raw.get("job_required_skills") or []
-    if skills_list:
-        return ", ".join(skills_list[:10])
-    desc = raw.get("job_description", "").lower()
-    common = ["Python","Linux","Wireshark","Nmap","SIEM","Splunk","Networking",
-              "Firewall","Cloud","AWS","Azure","Docker","Bash","PowerShell","SQL"]
-    found = [s for s in common if s.lower() in desc]
-    return ", ".join(found[:10]) if found else "See description"
+    except ValueError:
+        st.error("Received an unexpected response from the JSearch API.")
+        return []
